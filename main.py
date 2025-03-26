@@ -33,9 +33,9 @@ class HashiGrid:
 def adjacent_islands( h_grid, island_index):
     x, y = h_grid.island_coords[island_index]
     adj_islands = []
-    min_dis = {1000000, 1000000, 1000000, 1000000}
+    min_dis = [1000000, 1000000, 1000000, 1000000]
     # top, left , bottom , right
-    min_idx = {-1, -1, -1, -1}    
+    min_idx = [-1, -1, -1, -1]    
 
     for i in range(len(h_grid.island_coords)):
             x1,y1 = h_grid.island_coords[i]
@@ -59,7 +59,7 @@ def adjacent_islands( h_grid, island_index):
                     min_idx[2] = i
             #find right neighbor
             if y1 == y and x1 > x:
-                sub_min = abs(y1-y)
+                sub_min = abs(x1-x)
                 if sub_min < min_dis[3]:
                     min_dis[3] = sub_min
                     min_idx[3] = i
