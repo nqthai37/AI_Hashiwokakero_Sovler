@@ -42,25 +42,25 @@ def adjacent_islands( h_grid, island_index):
             #find top neighbor
             if x1 == x and y1 < y:
                 sub_min = abs(y1-y)
-                if sub_min < min:
+                if sub_min < min_dis[0]:
                     min_dis[0] = sub_min
                     min_idx[0] = i
             #find left neighbor
             if y1 == y and x1 < x:
                 sub_min = abs(x1-x)
-                if sub_min < min:
+                if sub_min < min_dis[1]:
                     min_dis[1] = sub_min
                     min_idx[1] = i
             #find bottom neighbor
             if x1 == x and y1 > y:
                 sub_min = abs(y1-y)
-                if sub_min < min:
+                if sub_min < min_dis[2]:
                     min_dis[2] = sub_min
                     min_idx[2] = i
             #find right neighbor
             if y1 == y and x1 > x:
                 sub_min = abs(y1-y)
-                if sub_min < min:
+                if sub_min < min_dis[3]:
                     min_dis[3] = sub_min
                     min_idx[3] = i
     for idx in min_idx:
