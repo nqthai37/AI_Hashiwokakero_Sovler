@@ -25,11 +25,6 @@ class HashiGrid:
                         self.digits.append(int(line[j]))
         self.n_islands = len(self.island_coords)
 
-    def printGrid(self):
-        for i in range(len(self.island_coords)):
-            print(f'Island {self.island_coords[i]} with bridges = {self.digits[i]}')
-
-
 def adjacent_islands(h_grid, island_index):
     x, y = h_grid.island_coords[island_index]
     adj_islands = []
@@ -71,112 +66,107 @@ def adjacent_islands(h_grid, island_index):
     
     return adj_islands            
 
+def coordinates_between(h_grid, i, j):
+    coordinates = [] 
+    is_horizontal = None 
+    
+    # xet cau ngang
+    if h_grid.island_coords[i][0] == h_grid.island_coords[j][0]: 
+        x = h_grid.island_coords[i][0]
+        coordinates = [
+            (x, y)
+            for y in range(
+                min(h_grid.island_coords[i][1], h_grid.island_coords[j][1]) + 1, 
+                max(h_grid.island_coords[i][1], h_grid.island_coords[j][1])
+            )
+        ]
+        is_horizontal = True
+    # xet cau doc
+    elif h_grid.island_coords[i][1] == h_grid.island_coords[j][1]: 
+        y = h_grid.island_coords[i][1]
+        coordinates = [
+            (x, y)
+            for x in range(
+                min(h_grid.island_coords[i][0], h_grid.island_coords[j][0]) + 1, 
+                max(h_grid.island_coords[i][0], h_grid.island_coords[j][0])
+            )
+        ]
+        is_horizontal = False
+    return coordinates, is_horizontal 
+
 def intersect(h_grid, ai, aj, bi, bj):
     coords_under_a, bridge_a_vertical = coordinates_between(h_grid, ai, aj)
     coords_under_b, bridge_b_vertical = coordinates_between(h_grid, bi, bj)
 
+    if not coords_under_a or not coords_under_b:
+        return False
     if bridge_a_vertical != bridge_b_vertical:
         return bool(set(coords_under_a) & set(coords_under_b))
     return False
-
-def coordinates_between(h_grid, i, j):
-	# ham nay co nhiem vu tao va ghi lai toa do cua cau, th1 laf cau ngang = true, th2 la cau doc = false, neu k tim thay la cau cheo = None 
-	coordinates = [] # khoi tao list rong de chua toa do cua cau
-	is_horizontal = None # dau tien khoi tao k co cau
-	
-	# xet cau ngang
-	if h_grid.island_coords[i][0] == h_grid.island_coords[j][0]: # lay toa do x ra so, neu bang thi nam ngang
-		x = h_grid.island_coords[i][0]
-		coordinates = [
-			(x, y)
-			for y in range(
-				h_grid.island_coords[i][1] + 1, h_grid.island_coords[j][1]
-			)
-		]
-		is_horizontal = True
-	# xet cau doc
-	elif h_grid.island_coords[i][1] == h_grid.island_coords[j][1]: #lay toa do cua y so sanh, neu bang thi doc
-		y = h_grid.island_coords[i][1]
-		coordinates = [
-			(x, y)
-			for x in range(
-				h_grid.island_coords[i][0] + 1, h_grid.island_coords[j][0]
-			)
-		]
-		is_horizontal = False
-	return coordinates, is_horizontal # tra ve toa do va kieu cua cau
-
-# def find_subtour(h_grid, solver, y_vars):
-#     bridges = {island: [] for island in range(h_grid.n_islands)}
-#     for bridge, var in y_vars.items():
-#         if solver.Value(var):
-#             i, j = bridge
-#             if i not in bridges:
-#                 bridges[i] = []
-#             if j not in bridges:
-#                 bridges[j] = []
-#             bridges[i].append(j)
-#             bridges[j].append(i)
-
-#     subtour_islands = {0}
-
-#     def scan(island):
-#         while bridges[island]:
-#             successor = bridges[island].pop(0)
-#             bridges[successor].remove(island)
-#             if successor not in subtour_islands:
-#                 subtour_islands.add(successor)
-#                 scan(successor)
-
-#     scan(0)
-    
-#     if len(subtour_islands) != h_grid.n_islands:
-#         return subtour_islands
-#     return None
 
 def solve_hashi(filename):
     h_grid = HashiGrid(filename)
     idpool = IDPool()
     cnf = CNF()
-    x_vars, y_vars = {}, {}
+    x_vars = {}
 
+    # 1. Create bridge variables for each pair of adjacent islands
     for i in range(h_grid.n_islands):
         for j in adjacent_islands(h_grid, i):
-            idx = (min(i, j), max(i, j))
-            x1, x2 = idpool.id(f"x1_{idx[0]}_{idx[1]}"), idpool.id(f"x2_{idx[0]}_{idx[1]}")
-            y = idpool.id(f"y_{idx[0]}_{idx[1]}")
-            x_vars[idx], y_vars[idx] = (x1, x2), y
-            cnf.append([-x1, -x2])  # Ensure x1 and x2 are not both True
-            cnf.append([-y, x1, x2])  # If y = 1, then x1 or x2 must be 1
-            cnf.append([-x1, y])
-            cnf.append([-x2, y])
+            if j > i:
+                idx = (i, j)
+                # Variables cho 1 và 2 bridges
+                x1 = idpool.id(f"x1_{idx[0]}_{idx[1]}")  # ít nhất 1 cầu 
+                x2 = idpool.id(f"x2_{idx[0]}_{idx[1]}")  # chính xác 2 cầu
+                x_vars[idx] = (x1, x2)
+                # Ràng buộc: x2 đúng thì x1 phải đúng
+                cnf.append([-x2, x1])
+                # Nếu x1 sai thì x2 sai
+                cnf.append([x1, -x2])
 
+    # 2. Ràng buộc tổng số cầu của từng đảo
     for i in range(h_grid.n_islands):
-        adjacent_xvars = [x_vars[(min(i, j), max(i, j))] for j in adjacent_islands(h_grid, i)]
-        cnf.extend(CardEnc.equals(
-            lits=[x for pair in adjacent_xvars for x in pair],
-            bound=h_grid.digits[i],
-            top_id=idpool.top
-        ).clauses)
+        island_bridge_vars = []
+        for j in adjacent_islands(h_grid, i):
+            idx = (i, j) if i < j else (j, i)
+            x1, x2 = x_vars[idx]
+            # Thêm biến có nghĩa là >= 1 cầu (x1) và chính xác 2 cầu (x2)
+            island_bridge_vars.append(x1) 
+            island_bridge_vars.append(x2)  
+        # Đảm bảo tổng số cầu khớp với con số trên đảo
+        enc = CardEnc.equals(lits=island_bridge_vars, bound=h_grid.digits[i], encoding=1, top_id=idpool.top)
+        idpool.top += 1000 
+        cnf.extend(enc.clauses)
 
-    for (i, j), (k, l) in combinations(y_vars.keys(), 2):
+    # 3. No intersecting bridges
+    for (i, j), (k, l) in combinations(x_vars.keys(), 2):
         if intersect(h_grid, i, j, k, l):
-            cnf.append([-y_vars[(i, j)], -y_vars[(k, l)]])
+            # Ensure intersecting bridges are not both present
+            cnf.append([-x_vars[(i, j)][0], -x_vars[(k, l)][0]])
+                       #-x1(i,j) hoặc - x1(k,l)
 
-    cnf.extend(CardEnc.atleast(
-        lits=list(y_vars.values()),
+    # 4. Connectivity constraint: Ensure most islands are connected
+    enc = CardEnc.equals(
+        lits=[x_vars[idx][0] for idx in x_vars],  # Use single bridge variables
         bound=h_grid.n_islands - 1,
         top_id=idpool.top
-    ).clauses)
-
+    )
+    cnf.extend(enc.clauses)
+    
+    # Solve the puzzle
     with Glucose4(bootstrap_with=cnf.clauses) as solver:
         if solver.solve():
             model = solver.get_model()
             print("Solution found:")
             for (i, j), (x1, x2) in x_vars.items():
-                b1, b2 = x1 in model, x2 in model
-                x_val = 0 if not b1 and not b2 else (1 if b1 and not b2 else 2)
-                print(f"x_{i}{j} = {x_val}")
+                # Determine the number of bridges
+                if x2 in model:
+                    bridge_count = 2
+                elif x1 in model:
+                    bridge_count = 1
+                else:
+                    bridge_count = 0
+                print(f"Bridge between {i} and {j}: {bridge_count}")
         else:
             print("No feasible solution found!")
             
