@@ -2,6 +2,9 @@ from pysat.formula import CNF, IDPool
 from pysat.solvers import Glucose4
 from pysat.card import CardEnc
 from itertools import combinations
+import time
+
+# Then use your original recursive solver
 
 class HashiGrid:
     def __init__(self, filename):
@@ -191,52 +194,84 @@ def pySat_solver(cnf, x_vars,h_grid):
                 print("\nWarning: Graph may not be fully connected.")
         else:
             print("No feasible solution found!")
-def backtracking_solver(cnf):
-    # Collect all variables in CNF
-    variables = sorted({abs(lit) for clause in cnf.clauses for lit in clause})
 
-    # Initialize assignment (0 = unassigned, 1 = True, -1 = False)
+def backtracking_solver(cnf):
+    # Đếm tần suất biến và sắp xếp
+    variable_counts = {}
+    for clause in cnf.clauses:
+        for lit in clause:
+            var = abs(lit)
+            variable_counts[var] = variable_counts.get(var, 0) + 1
+    variables = sorted(variable_counts.keys(), key=lambda v: -variable_counts[v])
+
+    # Khởi tạo assignment
     assignment = {var: 0 for var in variables}
 
-    def is_clause_satisfied(clause, assignment):
-        return any(assignment[abs(lit)] == (1 if lit > 0 else -1) for lit in clause if assignment[abs(lit)] != 0)
-
-    def all_clauses_satisfied(cnf, assignment):
-        return all(is_clause_satisfied(clause, assignment) for clause in cnf.clauses)
-
     def unit_propagation(assignment):
-        """
-        If a clause has only one unassigned literal, force its value.
-        """
+        """Tương tự như phiên bản trước"""
         changed = True
         while changed:
             changed = False
             for clause in cnf.clauses:
-                unassigned = [lit for lit in clause if assignment[abs(lit)] == 0]
-                if len(unassigned) == 1:
-                    lit = unassigned[0]
-                    assignment[abs(lit)] = 1 if lit > 0 else -1
-                    changed = True
+                satisfied = False
+                unassigned_lits = []
+                
+                for lit in clause:
+                    var = abs(lit)
+                    if assignment[var] != 0:
+                        if (lit > 0 and assignment[var] == 1) or (lit < 0 and assignment[var] == -1):
+                            satisfied = True
+                            break
+                    else:
+                        unassigned_lits.append(lit)
+                
+                if satisfied:
+                    continue
+                
+                if not unassigned_lits:
+                    return False
+                
+                if len(unassigned_lits) == 1:
+                    lit = unassigned_lits[0]
+                    var = abs(lit)
+                    new_value = 1 if lit > 0 else -1
+                    
+                    if assignment[var] == 0:
+                        assignment[var] = new_value
+                        changed = True
+                    elif assignment[var] != new_value:
+                        return False
+        return True
 
-    def backtrack(index):
+    def backtrack(assignment, index):
+        # Base case: đã gán hết tất cả biến
         if index == len(variables):
-            return assignment if all_clauses_satisfied(cnf, assignment) else None
-
+            # Kiểm tra tất cả mệnh đề đều thỏa mãn
+            for clause in cnf.clauses:
+                if not any((lit > 0 and assignment[abs(lit)] == 1) or 
+                   (lit < 0 and assignment[abs(lit)] == -1) for lit in clause):
+                    return None
+            return assignment
+        
         var = variables[index]
-        for value in [1, -1]:
-            assignment[var] = value
-            unit_propagation(assignment)  # Simplify CNF before deeper recursion
-
-            result = backtrack(index + 1)
-            if result:
+        
+        # Thử gán giá trị False trước
+        for value in [-1, 1]:
+            new_assignment = assignment.copy()
+            new_assignment[var] = value
+            
+            # Áp dụng unit propagation
+            if not unit_propagation(new_assignment):
+                continue
+            
+            # Đệ quy
+            result = backtrack(new_assignment, index + 1)
+            if result is not None:
                 return result
-
-            assignment[var] = 0  # Backtrack
-
+        
         return None
 
-    return backtrack(0)
-
+    return backtrack(assignment, 0)
 
 def backtrack_solver(cnf, x_vars, h_grid):
     solution = backtracking_solver(cnf)
@@ -258,10 +293,16 @@ def backtrack_solver(cnf, x_vars, h_grid):
     
 def main():
     cnf, x_vars, h_grid = solve_hashi("input.txt")
-    # print("Solving with PySAT...")
-    # pySat_solver(cnf, x_vars, h_grid)
+    print("Solving with PySAT...")
+    start = time.time()
+    pySat_solver(cnf, x_vars, h_grid)
+    end = time.time()
+    print(f"Time taken: {end - start:.4f} seconds")
     print("\nSolving with Backtracking...")
+    start = time.time()
     backtrack_solver(cnf, x_vars, h_grid)
+    end = time.time()
+    print(f"Time taken: {end - start:.4f} seconds")
     print("\nDone!")
     
             
