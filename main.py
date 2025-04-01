@@ -4,8 +4,6 @@ from pysat.card import CardEnc
 from itertools import combinations
 import time
 
-# Then use your original recursive solver
-
 class HashiGrid:
     def __init__(self, filename):
         self.n_size = 0
@@ -106,6 +104,29 @@ def intersect(h_grid, ai, aj, bi, bj):
         return bool(set(coords_a) & set(coords_b))
     return False
 
+def solutionToString(h_grid, bridge_count):
+    empty_grid = []
+    for _ in range(h_grid.n_size):
+        empty_grid.append(["0"] * h_grid.n_size)  
+    
+    for (i,j), d in zip(h_grid.island_coords, h_grid.digits):
+        empty_grid[i][j] = f"{d}"
+        
+    for (i,j) in bridge_count.keys():
+        if bridge_count[(i,j)] > 0:
+            coords_between, is_horizontal = coordinates_between(h_grid, i, j)
+            for coord in coords_between:
+                (x, y) = coord
+                if is_horizontal:
+                    empty_grid[x][y] = "-" if bridge_count[(i,j)] == 1 else "="
+                else: empty_grid[x][y] = "|" if bridge_count[(i,j)] == 1 else "$"
+                
+    return empty_grid
+
+def writeFile(output, solution):
+    with open(output, "w") as f:
+        f.write("\n".join(" ".join(row) for row in solution))
+
 def solve_hashi(filename):
     h_grid = HashiGrid(filename)
     idpool = IDPool()
@@ -117,105 +138,84 @@ def solve_hashi(filename):
         for j in adjacent_islands(h_grid, i):
             if j > i:
                 idx = (i, j)
-                # Variables for 0, 1, or 2 bridges
-                x0 = idpool.id(f"x0_{i}_{j}")  # no bridge
-                x1 = idpool.id(f"x1_{i}_{j}")  # single bridge
-                x2 = idpool.id(f"x2_{i}_{j}")  # double bridge
-                x_vars[idx] = (x0, x1, x2)
-                
-                # Exactly one of these must be true
-                cnf.append([x0, x1, x2])
-                cnf.append([-x0, -x1])
-                cnf.append([-x0, -x2])
-                cnf.append([-x1, -x2])
+                # Variables cho 1 và 2 bridges
+                x1 = idpool.id(f"x1_{idx[0]}_{idx[1]}")  # ít nhất 1 cầu 
+                x2 = idpool.id(f"x2_{idx[0]}_{idx[1]}")  # chính xác 2 cầu
+                x_vars[idx] = (x1, x2)
+                # Ràng buộc: x2 đúng thì x1 phải đúng
+                cnf.append([-x2, x1])
+                # Nếu x1 sai thì x2 sai
+                cnf.append([x1, -x2])
 
-    # 2. Sum constraints for each island
+    # 2. Ràng buộc tổng số cầu của từng đảo
     for i in range(h_grid.n_islands):
-        bridge_vars = []
-        # For single bridges (count as 1)
+        island_bridge_vars = []
         for j in adjacent_islands(h_grid, i):
             idx = (i, j) if i < j else (j, i)
-            x0, x1, x2 = x_vars[idx]
-            bridge_vars.append(x1)
-        
-        # For double bridges (need to count as 2)
-        # We represent this by adding the variable twice
-        for j in adjacent_islands(h_grid, i):
-            idx = (i, j) if i < j else (j, i)
-            x0, x1, x2 = x_vars[idx]
-            bridge_vars.append(x2)
-            bridge_vars.append(x2)  # add twice to count as 2
-        
-        # Create cardinality constraint for exact sum
-        enc = CardEnc.equals(lits=bridge_vars, bound=h_grid.digits[i], top_id=idpool.top)
+            x1, x2 = x_vars[idx]
+            # Thêm biến có nghĩa là >= 1 cầu (x1) và chính xác 2 cầu (x2)
+            island_bridge_vars.append(x1) 
+            island_bridge_vars.append(x2)  
+        # Đảm bảo tổng số cầu khớp với con số trên đảo
+        enc = CardEnc.equals(lits=island_bridge_vars, bound=h_grid.digits[i], encoding=1, top_id=idpool.top)
+        idpool.top += 1000 
         cnf.extend(enc.clauses)
-        idpool.top = enc.nv + 1
 
     # 3. No intersecting bridges
     for (i, j), (k, l) in combinations(x_vars.keys(), 2):
         if intersect(h_grid, i, j, k, l):
-            # At most one of these bridges can exist
-            x0_i, x1_i, x2_i = x_vars[(i,j)]
-            x0_k, x1_k, x2_k = x_vars[(k,l)]
-            cnf.append([-x1_i, -x1_k])
-            cnf.append([-x1_i, -x2_k])
-            cnf.append([-x2_i, -x1_k])
-            cnf.append([-x2_i, -x2_k])
+            # Ensure intersecting bridges are not both present
+            cnf.append([-x_vars[(i, j)][0], -x_vars[(k, l)][0]])
 
+
+    # 4. Connectivity constraint: Ensure most islands are connected
+    enc = CardEnc.atleast(
+        lits=[x_vars[idx][0] for idx in x_vars],  # Use single bridge variables
+        bound=h_grid.n_islands - 1,
+        top_id=idpool.top
+    )
+    cnf.extend(enc.clauses)
     return cnf, x_vars, h_grid
 
 def pySat_solver(cnf, x_vars,h_grid):
 
-    # Solve the puzzle
     with Glucose4(bootstrap_with=cnf.clauses) as solver:
         if solver.solve():
             model = solver.get_model()
-            print("\nSolution found:")
-            
-            # Collect all bridges for visualization
-            bridges = []
-            for (i, j), (x0, x1, x2) in x_vars.items():
-                if x1 in model and x1 > 0:
-                    bridges.append((i, j, 1))
-                elif x2 in model and x2 > 0:
-                    bridges.append((i, j, 2))
-            
-            # Print solution with coordinates
-            for bridge in bridges:
-                i, j, count = bridge
-                coord1 = h_grid.island_coords[i]
-                coord2 = h_grid.island_coords[j]
-                print(f"Bridge between {coord1} and {coord2}: {count} bridge{'s' if count > 1 else ''}")
-            
-            # Verify connectivity (basic check)
-            if len(bridges) >= h_grid.n_islands - 1:
-                print("\nGraph appears to be connected.")
-            else:
-                print("\nWarning: Graph may not be fully connected.")
+            print("Solution found")
+            bridge_count = {}
+            for (i, j), (x1, x2) in x_vars.items():
+                # Determine the number of bridges
+                if x2 in model:
+                    bridge_count[(i,j)] = 2
+                elif x1 in model:
+                    bridge_count[(i,j)] = 1
+                else:
+                    bridge_count[(i,j)] = 0
+            solution = solutionToString(h_grid, bridge_count)
+            return solution
         else:
             print("No feasible solution found!")
+            return None
 
-def backtracking_solver(cnf):
-    # Đếm tần suất biến và sắp xếp
-    variable_counts = {}
-    for clause in cnf.clauses:
-        for lit in clause:
-            var = abs(lit)
-            variable_counts[var] = variable_counts.get(var, 0) + 1
-    variables = sorted(variable_counts.keys(), key=lambda v: -variable_counts[v])
+def dpll_solver(cnf):
+    # Step 1: Collect and sort variables by frequency (heuristic)
+    variables = sorted(
+        {abs(lit) for clause in cnf.clauses for lit in clause},
+        key=lambda v: -sum(1 for clause in cnf.clauses for lit in clause if abs(lit) == v)
+    )
 
-    # Khởi tạo assignment
+    # Initialize assignment (0 = unassigned, 1 = True, -1 = False)
     assignment = {var: 0 for var in variables}
 
     def unit_propagation(assignment):
-        """Tương tự như phiên bản trước"""
+        """Same as before, forces unit clauses and detects conflicts."""
         changed = True
         while changed:
             changed = False
             for clause in cnf.clauses:
+                unassigned = []
                 satisfied = False
-                unassigned_lits = []
-                
                 for lit in clause:
                     var = abs(lit)
                     if assignment[var] != 0:
@@ -223,87 +223,108 @@ def backtracking_solver(cnf):
                             satisfied = True
                             break
                     else:
-                        unassigned_lits.append(lit)
+                        unassigned.append(lit)
                 
                 if satisfied:
                     continue
-                
-                if not unassigned_lits:
-                    return False
-                
-                if len(unassigned_lits) == 1:
-                    lit = unassigned_lits[0]
+                if not unassigned:
+                    return False  # Conflict
+                if len(unassigned) == 1:
+                    lit = unassigned[0]
                     var = abs(lit)
-                    new_value = 1 if lit > 0 else -1
-                    
+                    new_val = 1 if lit > 0 else -1
                     if assignment[var] == 0:
-                        assignment[var] = new_value
+                        assignment[var] = new_val
                         changed = True
-                    elif assignment[var] != new_value:
+                    elif assignment[var] != new_val:
                         return False
         return True
 
-    def backtrack(assignment, index):
-        # Base case: đã gán hết tất cả biến
-        if index == len(variables):
-            # Kiểm tra tất cả mệnh đề đều thỏa mãn
-            for clause in cnf.clauses:
-                if not any((lit > 0 and assignment[abs(lit)] == 1) or 
-                   (lit < 0 and assignment[abs(lit)] == -1) for lit in clause):
-                    return None
+    def pure_literal_elimination(assignment):
+        """Assign pure literals (those appearing only positively/negatively)."""
+        literal_sign = {}
+        for clause in cnf.clauses:
+            for lit in clause:
+                var = abs(lit)
+                if var in literal_sign:
+                    if literal_sign[var] != (lit > 0):
+                        literal_sign[var] = None  # Not pure
+                else:
+                    literal_sign[var] = (lit > 0)
+        
+        for var, sign in literal_sign.items():
+            if sign is not None and assignment[var] == 0:
+                assignment[var] = 1 if sign else -1
+        return assignment
+
+    def dpll(assignment, depth=0):
+        # Apply pure literal elimination
+        assignment = pure_literal_elimination(assignment.copy())
+        
+        # Apply unit propagation
+        if not unit_propagation(assignment):
+            return None  # Conflict
+        
+        # Check if all clauses are satisfied
+        if all(
+            any((lit > 0 and assignment[abs(lit)] == 1) or 
+                (lit < 0 and assignment[abs(lit)] == -1) 
+                for lit in clause)
+            for clause in cnf.clauses
+        ):
             return assignment
         
-        var = variables[index]
+        # Select next unassigned variable
+        for var in variables:
+            if assignment[var] == 0:
+                break
+        else:
+            return None  # No unassigned vars but not all clauses satisfied (shouldn't happen)
         
-        # Thử gán giá trị False trước
-        for value in [-1, 1]:
-            new_assignment = assignment.copy()
-            new_assignment[var] = value
-            
-            # Áp dụng unit propagation
-            if not unit_propagation(new_assignment):
-                continue
-            
-            # Đệ quy
-            result = backtrack(new_assignment, index + 1)
-            if result is not None:
-                return result
+        # Try assigning True
+        new_assignment = assignment.copy()
+        new_assignment[var] = 1
+        result = dpll(new_assignment, depth + 1)
+        if result is not None:
+            return result
         
-        return None
+        # Try assigning False
+        new_assignment = assignment.copy()
+        new_assignment[var] = -1
+        return dpll(new_assignment, depth + 1)
 
-    return backtrack(assignment, 0)
-
+    return dpll(assignment) 
+    
 def backtrack_solver(cnf, x_vars, h_grid):
-    solution = backtracking_solver(cnf)
+    solution = dpll_solver(cnf)
 
     if solution:
         print("\nSolution found:")
-        bridges = [
-            (i, j, 1) if solution.get(x1, 0) == 1 else (i, j, 2)
-            for (i, j), (x0, x1, x2) in x_vars.items()
-            if solution.get(x1, 0) == 1 or solution.get(x2, 0) == 1
-        ]
-
-        for i, j, count in bridges:
-            coord1, coord2 = h_grid.island_coords[i], h_grid.island_coords[j]
-            print(f"Bridge between {coord1} and {coord2}: {count} bridge{'s' if count > 1 else ''}")
+        bridge_count = {}
+        for (i, j), (x1, x2) in x_vars.items():
+                # Determine the number of bridges
+            if x2 in solution:
+                    solution[(i,j)] = 2
+            elif x1 in solution:
+                    bridge_count[(i,j)] = 1
+            else:
+                    bridge_count[(i,j)] = 0
+        sol_str = solutionToString(h_grid, bridge_count)
+        return sol_str
     else:
         print("No feasible solution found!")
+        return None
+      
 
-    
 def main():
-    cnf, x_vars, h_grid = solve_hashi("input.txt")
-    print("Solving with PySAT...")
-    start = time.time()
-    pySat_solver(cnf, x_vars, h_grid)
-    end = time.time()
-    print(f"Time taken: {end - start:.4f} seconds")
-    print("\nSolving with Backtracking...")
-    start = time.time()
-    backtrack_solver(cnf, x_vars, h_grid)
-    end = time.time()
-    print(f"Time taken: {end - start:.4f} seconds")
-    print("\nDone!")
+
+    input = "Inputs/input-01.txt"
+    num = input.split(".")[-2].split("-")[-1]
+    cnf,x_vars,h_grid = solve_hashi(input)
+    solution= backtrack_solver(cnf, x_vars, h_grid)
+    output = "output-" + num + ".txt"
+    if solution:
+        writeFile(output, solution)
     
             
 if __name__ == "__main__":
