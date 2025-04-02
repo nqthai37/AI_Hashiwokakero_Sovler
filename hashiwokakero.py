@@ -181,7 +181,7 @@ def generate_cnf(h_grid, x_vars):
 
 
 
-def solve_hashi_generic(cnf, h_grid, x_vars, solver_function):
+def solve_hashi_generic(h_grid, x_vars, cnf, solver_function):
     # Gọi hàm solver_function để giải CNF
     model = solver_function(cnf)
 
@@ -201,13 +201,13 @@ def solve_hashi_generic(cnf, h_grid, x_vars, solver_function):
         print("No feasible solution found!")
         return None
 
-def solve_hashi_brute_force(cnf, x_vars, h_grid):
-    return solve_hashi_generic(cnf, h_grid, x_vars, brute_force_cnf)
+def solve_hashi_brute_force(h_grid, x_vars, cnf):
+    return solve_hashi_generic(h_grid, x_vars, cnf, brute_force_cnf)
 
-def solve_hashi_Astar(cnf, x_vars, h_grid):
-    return solve_hashi_generic(cnf, h_grid, x_vars, a_star_cnf)
+def solve_hashi_Astar(h_grid, x_vars, cnf):
+    return solve_hashi_generic(h_grid, x_vars, cnf, a_star_cnf)
 
-def solve_hashi_Pysat(cnf, h_grid, x_vars):
+def solve_hashi_Pysat(h_grid, x_vars, cnf):
     with Glucose4(bootstrap_with=cnf.clauses) as solver:
         if solver.solve():
             model = solver.get_model()
@@ -227,7 +227,7 @@ def solve_hashi_Pysat(cnf, h_grid, x_vars):
             print("No feasible solution found!")
             return None
 
-def backtrack_solver(cnf, x_vars, h_grid):
+def backtrack_solver(h_grid, x_vars, cnf):
     model = dpll_solver(cnf)
     if model is None:
         return None
@@ -249,12 +249,11 @@ def writeFile(output, solution):
 def main():
     input = "Inputs/input-01.txt"
     num = input.split(".")[-2].split("-")[-1]
-    
     h_grid = HashiGrid(input)
     x_vars = {}
     cnf, x_vars = generate_cnf(h_grid, x_vars)
     
-    solution = backtrack_solver(cnf, x_vars, h_grid)
+    solution = solve_hashi_Astar(h_grid, x_vars, cnf)
     output = "Outputs/output-" + num + ".txt"
     if solution:
         writeFile(output, solution)
