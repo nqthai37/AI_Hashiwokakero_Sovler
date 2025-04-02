@@ -5,7 +5,8 @@ from itertools import combinations
 
 from dpll import dpll_solver
 from Astar import a_star_cnf
-from Brute_force import brute_force_cnf 
+from brute_force import brute_force_cnf 
+
 
 class HashiGrid:
     def __init__(self, filename):
@@ -200,15 +201,12 @@ def solve_hashi_generic(cnf, h_grid, x_vars, solver_function):
         print("No feasible solution found!")
         return None
 
-def solve_hashi_brute_force(cnf, h_grid, x_vars):
+def solve_hashi_brute_force(cnf, x_vars, h_grid):
     return solve_hashi_generic(cnf, h_grid, x_vars, brute_force_cnf)
 
-def solve_hashi_Astar(cnf, h_grid, x_vars):
+def solve_hashi_Astar(cnf, x_vars, h_grid):
     return solve_hashi_generic(cnf, h_grid, x_vars, a_star_cnf)
 
-def solve_hashi_Backtrack(cnf, h_grid, x_vars):
-    return solve_hashi_generic(cnf, h_grid, x_vars, dpll_solver)
-   
 def solve_hashi_Pysat(cnf, h_grid, x_vars):
     with Glucose4(bootstrap_with=cnf.clauses) as solver:
         if solver.solve():
@@ -228,6 +226,21 @@ def solve_hashi_Pysat(cnf, h_grid, x_vars):
         else:
             print("No feasible solution found!")
             return None
+
+def backtrack_solver(cnf, x_vars, h_grid):
+    model = dpll_solver(cnf)
+    if model is None:
+        return None
+    bridge_count = {}
+    for (i, j), (x1, x2) in x_vars.items():
+        if model[abs(x2)] == 1:
+            bridge_count[(i,j)] = 2
+        elif model[abs(x1)] == 1:
+            bridge_count[(i,j)] = 1
+        else:
+            bridge_count[(i,j)] = 0
+    solution = solutionToString(h_grid, bridge_count)
+    return solution
     
 def writeFile(output, solution):
     with open(output, "w") as f:
@@ -241,7 +254,7 @@ def main():
     x_vars = {}
     cnf, x_vars = generate_cnf(h_grid, x_vars)
     
-    solution = solve_hashi_Pysat(cnf, h_grid, x_vars)
+    solution = backtrack_solver(cnf, x_vars, h_grid)
     output = "Outputs/output-" + num + ".txt"
     if solution:
         writeFile(output, solution)
