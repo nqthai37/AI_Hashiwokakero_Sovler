@@ -75,15 +75,6 @@ def a_star_cnf(cnf):
         return assignment
 
     def heuristic(assignment):
-        satisfied = 0
-        for clause in cnf.clauses:
-            if any((lit > 0 and assignment[abs(lit)] == 1) or 
-                   (lit < 0 and assignment[abs(lit)] == -1) 
-                   for lit in clause):
-                satisfied += 1
-        return satisfied
-
-    def cost(assignment):
         unsatisfied = 0
         for clause in cnf.clauses:
             if not any((lit > 0 and assignment[abs(lit)] == 1) or 
@@ -91,6 +82,7 @@ def a_star_cnf(cnf):
                        for lit in clause):
                 unsatisfied += 1
         return unsatisfied
+        
 
     def a_star():
         # Initialize the priority queue (open list)
@@ -128,7 +120,7 @@ def a_star_cnf(cnf):
             # Try assigning True
             new_assignment_true = current_assignment.copy()
             new_assignment_true[var] = 1
-            f_true = cost(new_assignment_true) + heuristic(new_assignment_true)
+            f_true = heuristic(new_assignment_true)
             if tuple(new_assignment_true.items()) not in closed_list:
                 new_node_true = AStarNode(f_true, current_node.g_value + 1, new_assignment_true)
                 heapq.heappush(open_list, new_node_true)
@@ -137,7 +129,7 @@ def a_star_cnf(cnf):
             # Try assigning False
             new_assignment_false = current_assignment.copy()
             new_assignment_false[var] = -1
-            f_false = cost(new_assignment_false) + heuristic(new_assignment_false)
+            f_false = heuristic(new_assignment_false)
             if tuple(new_assignment_false.items()) not in closed_list:
                 new_node_false = AStarNode(f_false, current_node.g_value + 1, new_assignment_false)
                 heapq.heappush(open_list, new_node_false)

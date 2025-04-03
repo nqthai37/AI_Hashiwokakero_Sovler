@@ -1,4 +1,4 @@
-def dpll_solver(cnf):
+def dpll_cnf(cnf):
     # Step 1: Collect and sort variables by frequency (heuristic)
     variables = sorted(
         {abs(lit) for clause in cnf.clauses for lit in clause},

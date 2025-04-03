@@ -3,10 +3,9 @@ from pysat.solvers import Glucose4
 from pysat.card import CardEnc
 from itertools import combinations
 
-from dpll import dpll_solver
+from dpll import dpll_cnf
 from Astar import a_star_cnf
 from brute_force import brute_force_cnf 
-
 
 class HashiGrid:
     def __init__(self, filename):
@@ -30,7 +29,6 @@ class HashiGrid:
                         self.digits.append(int(line[j]))
         self.n_islands = len(self.island_coords)
 
-
 def solutionToString(h_grid, bridge_count):
     empty_grid = []
     for _ in range(h_grid.n_size):
@@ -49,8 +47,7 @@ def solutionToString(h_grid, bridge_count):
                 else: empty_grid[x][y] = "|" if bridge_count[(i,j)] == 1 else "$"
                 
     return empty_grid
-        
-          
+                 
 def adjacent_islands(h_grid, island_index):
     x, y = h_grid.island_coords[island_index]
     adj_islands = []
@@ -91,7 +88,6 @@ def adjacent_islands(h_grid, island_index):
             adj_islands.append(idx)
     
     return adj_islands            
-
 
 def coordinates_between(h_grid, i, j):
     coordinates = [] 
@@ -177,37 +173,9 @@ def generate_cnf(h_grid, x_vars):
     )
     cnf.extend(enc.clauses)
     
-    return cnf, x_vars
+    return cnf
 
-
-
-def solve_hashi_generic(h_grid, x_vars, cnf, solver_function):
-    # Gọi hàm solver_function để giải CNF
-    model = solver_function(cnf)
-
-    if model:
-        bridge_count = {}
-        for (i, j), (x1, x2) in x_vars.items():
-            if model.get(x2, False):
-                bridge_count[(i, j)] = 2
-            elif model.get(x1, False):
-                bridge_count[(i, j)] = 1
-            else:
-                bridge_count[(i, j)] = 0
-
-        solution = solutionToString(h_grid, bridge_count)
-        return solution
-    else:
-        print("No feasible solution found!")
-        return None
-
-def solve_hashi_brute_force(h_grid, x_vars, cnf):
-    return solve_hashi_generic(h_grid, x_vars, cnf, brute_force_cnf)
-
-def solve_hashi_Astar(h_grid, x_vars, cnf):
-    return solve_hashi_generic(h_grid, x_vars, cnf, a_star_cnf)
-
-def solve_hashi_Pysat(h_grid, x_vars, cnf):
+def PySAT_solver(h_grid, x_vars, cnf):
     with Glucose4(bootstrap_with=cnf.clauses) as solver:
         if solver.solve():
             model = solver.get_model()
@@ -227,21 +195,35 @@ def solve_hashi_Pysat(h_grid, x_vars, cnf):
             print("No feasible solution found!")
             return None
 
-def backtrack_solver(h_grid, x_vars, cnf):
-    model = dpll_solver(cnf)
+def strategy_solver(h_grid, x_vars, cnf, solver_function):
+    model = solver_function(cnf)
     if model is None:
+        print("No feasible solution found!")
         return None
+    
     bridge_count = {}
     for (i, j), (x1, x2) in x_vars.items():
         if model[abs(x2)] == 1:
-            bridge_count[(i,j)] = 2
+            bridge_count[(i, j)] = 2
         elif model[abs(x1)] == 1:
-            bridge_count[(i,j)] = 1
+            bridge_count[(i, j)] = 1
         else:
-            bridge_count[(i,j)] = 0
-    solution = solutionToString(h_grid, bridge_count)
-    return solution
+            bridge_count[(i, j)] = 0
     
+    print("Solution found.")
+    solution = solutionToString(h_grid, bridge_count)
+    
+    return solution
+
+def Astar_solver(h_grid, x_vars, cnf):
+    return strategy_solver(h_grid, x_vars, cnf, a_star_cnf)  
+
+def brute_force_solver(h_grid, x_vars, cnf):
+    return strategy_solver(h_grid, x_vars, cnf, brute_force_cnf)
+
+def backtrack_solver(h_grid, x_vars, cnf):
+    return strategy_solver(h_grid, x_vars, cnf, dpll_cnf)
+     
 def writeFile(output, solution):
     with open(output, "w") as f:
         f.write("\n".join(" ".join(row) for row in solution))
@@ -251,9 +233,9 @@ def main():
     num = input.split(".")[-2].split("-")[-1]
     h_grid = HashiGrid(input)
     x_vars = {}
-    cnf, x_vars = generate_cnf(h_grid, x_vars)
+    cnf = generate_cnf(h_grid, x_vars)
     
-    solution = solve_hashi_Astar(h_grid, x_vars, cnf)
+    solution = brute_force_solver(h_grid, x_vars, cnf)
     output = "Outputs/output-" + num + ".txt"
     if solution:
         writeFile(output, solution)

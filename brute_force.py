@@ -1,36 +1,83 @@
 from itertools import product
 
 def brute_force_cnf(cnf):
-    # Lấy tất cả các biến xuất hiện trong CNF
-    all_vars = set(abs(lit) for clause in cnf.clauses for lit in clause)
-    n = len(all_vars)  # Số lượng biến cần duyệt
+    # Step 1: Collect all variables (positive and negative literals)
+    variables = sorted({abs(lit) for clause in cnf.clauses for lit in clause})
 
-    # Sắp xếp danh sách biến để duyệt theo thứ tự
-    var_list = sorted(all_vars)
-
-    # Duyệt tất cả các tổ hợp gán giá trị cho biến
-    for assignment in product([False, True], repeat=n):
-        model = {var_list[i]: assignment[i] for i in range(n)}
-
-        # Kiểm tra xem mô hình này có thỏa mãn tất cả các mệnh đề CNF không
-        satisfied = True
-        for clause in cnf.clauses:
-            clause_satisfied = False
-            for literal in clause:
-                var = abs(literal)  # Lấy biến từ literal
-                value = model[var]  # Lấy giá trị True/False của biến
-
-                # Nếu biến dương (literal > 0) thì cần giá trị True
-                # Nếu biến âm (literal < 0) thì cần giá trị False
-                if (literal > 0 and value) or (literal < 0 and not value):
-                    clause_satisfied = True
-                    break  # Mệnh đề này thỏa mãn, không cần kiểm tra tiếp
-
-            if not clause_satisfied:
+    def unit_propagation(assignment):
+        """Applies unit propagation."""
+        changed = True
+        while changed:
+            changed = False
+            for clause in cnf.clauses:
+                unassigned = []
                 satisfied = False
-                break  # CNF không thỏa mãn, thử tổ hợp tiếp theo
-        
-        if satisfied:
-            return model  # Trả về lời giải hợp lệ
+                for lit in clause:
+                    var = abs(lit)
+                    if assignment[var] != 0:
+                        if (lit > 0 and assignment[var] == 1) or (lit < 0 and assignment[var] == -1):
+                            satisfied = True
+                            break
+                    else:
+                        unassigned.append(lit)
 
-    return None  # Trả về None nếu không có lời giải hợp lệ
+                if satisfied:
+                    continue
+                if not unassigned:
+                    return False  # Conflict
+                if len(unassigned) == 1:
+                    lit = unassigned[0]
+                    var = abs(lit)
+                    new_val = 1 if lit > 0 else -1
+                    if assignment[var] == 0:
+                        assignment[var] = new_val
+                        changed = True
+                    elif assignment[var] != new_val:
+                        return False
+        return True
+
+    def pure_literal_elimination(assignment):
+        """Assign pure literals."""
+        literal_sign = {}
+        for clause in cnf.clauses:
+            for lit in clause:
+                var = abs(lit)
+                if var in literal_sign:
+                    if literal_sign[var] != (lit > 0):
+                        literal_sign[var] = None  # Not pure
+                else:
+                    literal_sign[var] = (lit > 0)
+
+        for var, sign in literal_sign.items():
+            if sign is not None and assignment[var] == 0:
+                assignment[var] = 1 if sign else -1
+        return assignment
+
+    # Step 2: Generate all possible assignments for the variables
+    all_assignments = product([1, -1], repeat=len(variables))
+
+    # Step 3: Try each assignment and apply heuristics (Unit Propagation and Pure Literal Elimination)
+    for assignment_tuple in all_assignments:
+        assignment = {var: 0 for var in variables}
+        
+        # Convert the tuple to an assignment dictionary
+        for i, var in enumerate(variables):
+            assignment[var] = assignment_tuple[i]
+        
+        # Apply unit propagation
+        if not unit_propagation(assignment.copy()):
+            continue  # Conflict, skip this assignment
+        
+        # Apply pure literal elimination
+        assignment = pure_literal_elimination(assignment)
+
+        # Step 4: Check if all clauses are satisfied
+        if all(
+            any((lit > 0 and assignment[abs(lit)] == 1) or 
+                (lit < 0 and assignment[abs(lit)] == -1) 
+                for lit in clause)
+            for clause in cnf.clauses
+        ):
+            return assignment  # Found a solution
+
+    return None  # No solution found
