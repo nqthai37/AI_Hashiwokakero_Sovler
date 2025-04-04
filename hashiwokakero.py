@@ -6,6 +6,7 @@ from itertools import combinations
 from dpll import dpll_cnf
 from Astar import a_star_cnf
 from brute_force import brute_force_cnf 
+import time, tracemalloc
 
 class HashiGrid:
     def __init__(self, filename):
@@ -229,16 +230,27 @@ def writeFile(output, solution):
         f.write("\n".join(" ".join(row) for row in solution))
 
 def main():
-    input = "Inputs/input-01.txt"
+    input = "Inputs/input-07.txt"
     num = input.split(".")[-2].split("-")[-1]
     h_grid = HashiGrid(input)
     x_vars = {}
     cnf = generate_cnf(h_grid, x_vars)
     
-    solution = brute_force_solver(h_grid, x_vars, cnf)
+    tracemalloc.start()
+    start_time = time.time()
+    
+    solution = Astar_solver(h_grid, x_vars, cnf)
+    
+    end_time = time.time()
+    memory_used = tracemalloc.get_traced_memory()[1]  # Lấy bộ nhớ tối đa sử dụng
+    tracemalloc.stop()
+
     output = "Outputs/output-" + num + ".txt"
     if solution:
         writeFile(output, solution)
-            
+    
+    print(f"Thời gian thực thi: {end_time - start_time:.4f} giây")
+    print(f"Bộ nhớ sử dụng: {memory_used / (1024 * 1024):.2f} MB")
+
 if __name__ == "__main__":
     main()
