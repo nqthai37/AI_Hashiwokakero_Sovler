@@ -1,36 +1,36 @@
 from itertools import product
+from utility_function import unit_propagation, pure_literal_elimination
 
 def brute_force_cnf(cnf):
-    # Lấy tất cả các biến xuất hiện trong CNF
-    all_vars = set(abs(lit) for clause in cnf.clauses for lit in clause)
-    n = len(all_vars)  # Số lượng biến cần duyệt
+    # Step 1: Collect all variables (positive and negative literals)
+    variables = sorted({abs(lit) for clause in cnf.clauses for lit in clause})
 
-    # Sắp xếp danh sách biến để duyệt theo thứ tự
-    var_list = sorted(all_vars)
 
-    # Duyệt tất cả các tổ hợp gán giá trị cho biến
-    for assignment in product([False, True], repeat=n):
-        model = {var_list[i]: assignment[i] for i in range(n)}
+    # Step 2: Generate all possible assignments for the variables
+    all_assignments = product([1, -1], repeat=len(variables))
 
-        # Kiểm tra xem mô hình này có thỏa mãn tất cả các mệnh đề CNF không
-        satisfied = True
-        for clause in cnf.clauses:
-            clause_satisfied = False
-            for literal in clause:
-                var = abs(literal)  # Lấy biến từ literal
-                value = model[var]  # Lấy giá trị True/False của biến
-
-                # Nếu biến dương (literal > 0) thì cần giá trị True
-                # Nếu biến âm (literal < 0) thì cần giá trị False
-                if (literal > 0 and value) or (literal < 0 and not value):
-                    clause_satisfied = True
-                    break  # Mệnh đề này thỏa mãn, không cần kiểm tra tiếp
-
-            if not clause_satisfied:
-                satisfied = False
-                break  # CNF không thỏa mãn, thử tổ hợp tiếp theo
+    # Step 3: Try each assignment and apply heuristics (Unit Propagation and Pure Literal Elimination)
+    for assignment_tuple in all_assignments:
+        assignment = {var: 0 for var in variables}
         
-        if satisfied:
-            return model  # Trả về lời giải hợp lệ
+        # Convert the tuple to an assignment dictionary
+        for i, var in enumerate(variables):
+            assignment[var] = assignment_tuple[i]
+        
+        # Apply unit propagation
+        if not unit_propagation(assignment.copy(), cnf):
+            continue  # Conflict, skip this assignment
+        
+        # Apply pure literal elimination
+        assignment = pure_literal_elimination(assignment, cnf)
 
-    return None  # Trả về None nếu không có lời giải hợp lệ
+        # Step 4: Check if all clauses are satisfied
+        if all(
+            any((lit > 0 and assignment[abs(lit)] == 1) or 
+                (lit < 0 and assignment[abs(lit)] == -1) 
+                for lit in clause)
+            for clause in cnf.clauses
+        ):
+            return assignment  # Found a solution
+
+    return None  # No solution found
