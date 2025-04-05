@@ -23,7 +23,26 @@ Dự án giải trò chơi Hashiwokakero, còn được gọi là "Bridges". Tr�
 - inputs/input-01.txt      (Chứa các bài toán đầu vào)
 - Outputs/output-01.txt  (Thư mục lưu trữ kết quả)
 - README.md              (Tài liệu hướng dẫn)
-- LICENSE                (Thông tin bản quyền)
+## Tập tin đầu vào
+Tạo một tập tin văn bản trong thư mục Inputs/ với quy định:
+- Số 0 là khoảng trống trên bảng đồ.
+- Các chữ số là số cầu phải có trên đảo.
+- Ví dụ:
+1 0 0 2
+0 0 0 0
+0 0 0 0
+1 0 0 2
+## Tập tin đầu ra
+Các ký hiệu quy định:
+- Cầu đơn ngang "-"
+- Cầu đôi ngang "="
+- Câu đơn dọc "|"
+- Cầu đôi dọc "$"
+- Ví dụ:
+1 - - 2
+0 0 0 |
+0 0 0 |
+1 - - 2
 ## Hạn Chế
 - Trình giải giả định rằng bài toán đầu vào là hợp lệ.
 - Các bài toán lớn có thể mất nhiều thời gian để giải do độ phức tạp của việc giải SAT.
