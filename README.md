@@ -41,10 +41,12 @@ Các ký hiệu quy định:
 - Câu đơn dọc "|"
 - Cầu đôi dọc "$"
 - Ví dụ:
+```
 1 - - 2
 0 0 0 |
 0 0 0 |
 1 - - 2
+```
 ## Hạn Chế
 - Trình giải giả định rằng bài toán đầu vào là hợp lệ.
 - Các bài toán lớn có thể mất nhiều thời gian để giải do độ phức tạp của việc giải SAT.
