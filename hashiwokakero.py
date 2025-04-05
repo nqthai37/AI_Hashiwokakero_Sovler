@@ -230,27 +230,79 @@ def writeFile(output, solution):
         f.write("\n".join(" ".join(row) for row in solution))
 
 def main():
-    input = "Inputs/input-07.txt"
-    num = input.split(".")[-2].split("-")[-1]
-    h_grid = HashiGrid(input)
+    # Display menu for user to select input file
+    print("=== SELECT INPUT FILE ===")
+    for i in range(1, 15):
+        num = str(i).zfill(2)  # Format number as 01, 02, ..., 14
+        print(f"{i}. input-{num}.txt")
+    print("15. Enter a custom file path")
+    
+    choice = input("Your selection (1-15): ")
+    
+    try:
+        choice_num = int(choice)
+        if 1 <= choice_num <= 14:
+            num = str(choice_num).zfill(2)
+            input_file = f"Inputs/input-{num}.txt"
+        elif choice_num == 15:
+            input_file = input("Enter the full path to your input file: ")
+        else:
+            print("Invalid selection, using default input-01.txt")
+            input_file = "Inputs/input-01.txt"
+            num = "01"
+    except ValueError:
+        print("Invalid selection, using default input-01.txt")
+        input_file = "Inputs/input-01.txt"
+        num = "01"
+    
+    # Extract number from filename to create output filename
+    if "input-" in input_file:
+        try:
+            num = input_file.split("input-")[-1].split(".")[0]
+        except:
+            num = "custom"
+    else:
+        num = "custom"
+    
+    # Create grid object from input file
+    h_grid = HashiGrid(input_file)
+    
+    # Initialize x_vars and cnf for all algorithms that might need them
     x_vars = {}
     cnf = generate_cnf(h_grid, x_vars)
     
-    tracemalloc.start()
-    start_time = time.time()
+    # Display menu for user to select algorithm
+    print("\n=== SELECT ALGORITHM ===")
+    print("1. A* (A-star)")
+    print("2. PYSAT Solver")
+    print("3. Brute Force")
+    print("4. Backtracking")
     
-    solution = Astar_solver(h_grid, x_vars, cnf)
+    algo_choice = input("Your selection (1-4): ")
     
-    end_time = time.time()
-    memory_used = tracemalloc.get_traced_memory()[1]  # Lấy bộ nhớ tối đa sử dụng
-    tracemalloc.stop()
-
+    # Run the selected algorithm
+    if algo_choice == '1':
+        print("Solving with A* algorithm...")
+        solution = Astar_solver(h_grid, x_vars, cnf)
+    elif algo_choice == '2':
+        print("Solving with PYSAT...")
+        solution = PySAT_solver(h_grid, x_vars, cnf)
+    elif algo_choice == '3':
+        print("Solving with Brute Force...")
+        solution = brute_force_solver(h_grid, x_vars, cnf)
+    elif algo_choice == '4':
+        print("Solving with Backtracking...")
+        solution = backtrack_solver(h_grid)
+    else:
+        print("Invalid selection, using A* algorithm by default")
+        solution = Astar_solver(h_grid, x_vars, cnf)
+    
     output = "Outputs/output-" + num + ".txt"
     if solution:
+        print(f"Solution found! Results saved to {output}")
         writeFile(output, solution)
-    
-    print(f"Thời gian thực thi: {end_time - start_time:.4f} giây")
-    print(f"Bộ nhớ sử dụng: {memory_used / (1024 * 1024):.2f} MB")
+    else:
+        print("No solution found!")
 
 if __name__ == "__main__":
     main()
