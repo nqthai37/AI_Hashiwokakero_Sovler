@@ -273,33 +273,41 @@ def main():
     
     # Display menu for user to select algorithm
     print("\n=== SELECT ALGORITHM ===")
-    print("1. A* (A-star)")
-    print("2. PYSAT Solver")
+    print("1. PYSAT Solver")
+    print("2. A* (A-star)")
     print("3. Brute Force")
     print("4. Backtracking")
     
     algo_choice = input("Your selection (1-4): ")
     
+    tracemalloc.start()
+    start_time = time.time()
+    
     # Run the selected algorithm
     if algo_choice == '1':
-        print("Solving with A* algorithm...")
-        solution = Astar_solver(h_grid, x_vars, cnf)
-    elif algo_choice == '2':
         print("Solving with PYSAT...")
         solution = PySAT_solver(h_grid, x_vars, cnf)
+    elif algo_choice == '2':
+        print("Solving with A* algorithm...")
+        solution = Astar_solver(h_grid, x_vars, cnf)
     elif algo_choice == '3':
         print("Solving with Brute Force...")
         solution = brute_force_solver(h_grid, x_vars, cnf)
     elif algo_choice == '4':
         print("Solving with Backtracking...")
-        solution = backtrack_solver(h_grid)
+        solution = backtrack_solver(h_grid, x_vars, cnf)
     else:
-        print("Invalid selection, using A* algorithm by default")
-        solution = Astar_solver(h_grid, x_vars, cnf)
+        print("Invalid selection, using PySAT algorithm by default")
+        solution = PySAT_solver(h_grid, x_vars, cnf)
+    end_time = time.time()
+    memory_used = tracemalloc.get_traced_memory()[1]  # Lấy bộ nhớ tối đa sử dụng
+    tracemalloc.stop()
     
     output = "Outputs/output-" + num + ".txt"
     if solution:
         print(f"Solution found! Results saved to {output}")
+        print(f"Thời gian thực thi: {end_time - start_time:.4f} giây")
+        print(f"Bộ nhớ sử dụng: {memory_used / (1024 * 1024):.2f} MB")
         writeFile(output, solution)
     else:
         print("No solution found!")
