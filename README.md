@@ -28,10 +28,12 @@ Tạo một tập tin văn bản trong thư mục Inputs/ với quy định:
 - Số 0 là khoảng trống trên bảng đồ.
 - Các chữ số là số cầu phải có trên đảo.
 - Ví dụ:
-'1 0 0 2
-'0 0 0 0
-'0 0 0 0
-'1 0 0 2
+```
+1 0 0 2
+0 0 0 0
+0 0 0 0
+1 0 0 2
+```
 ## Tập tin đầu ra
 Các ký hiệu quy định:
 - Cầu đơn ngang "-"
