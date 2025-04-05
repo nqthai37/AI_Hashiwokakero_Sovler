@@ -1,0 +1,4 @@
+pysat
+numpy
+tracemalloc
+time
