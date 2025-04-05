@@ -19,11 +19,11 @@ Dự án giải trò chơi Hashiwokakero, còn được gọi là "Bridges". Tr�
   pip install pysat numpy
   hashiwokakero-solver/
 ## Cấu trúc thư mục
-- hashiwokakero1.py      # Mã nguồn chính của trình giải
-- inputs/input-01.txt    # Chứa các bài toán đầu vào
-- Outputs/output-01.txt  # Thư mục lưu trữ kết quả
-- README.md              # Tài liệu hướng dẫn 
-- LICENSE                # Thông tin bản quyền
+- hashiwokakero1.py       (Mã nguồn chính của trình giải)
+- inputs/input-01.txt      (Chứa các bài toán đầu vào)
+- Outputs/output-01.txt  (Thư mục lưu trữ kết quả)
+- README.md              (Tài liệu hướng dẫn)
+- LICENSE                (Thông tin bản quyền)
 ## Hạn Chế
 - Trình giải giả định rằng bài toán đầu vào là hợp lệ.
 - Các bài toán lớn có thể mất nhiều thời gian để giải do độ phức tạp của việc giải SAT.
