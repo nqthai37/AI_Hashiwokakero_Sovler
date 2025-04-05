@@ -20,10 +20,8 @@ Dự án giải trò chơi Hashiwokakero, còn được gọi là "Bridges". Tr�
   hashiwokakero-solver/
 ## Cấu trúc thư mục
 - hashiwokakero1.py      # Mã nguồn chính của trình giải
-- inputs/                # Chứa các bài toán đầu vào
-+ input-01.txt
-- Outputs/               # Thư mục lưu trữ kết quả
-+ output-01.txt
+- inputs/input-01.txt    # Chứa các bài toán đầu vào
+- Outputs/output-01.txt  # Thư mục lưu trữ kết quả
 - README.md              # Tài liệu hướng dẫn 
 - LICENSE                # Thông tin bản quyền
 ## Hạn Chế
